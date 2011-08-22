@@ -51,3 +51,5 @@ if (SUPPORT_LEGACY && !('JSON' in window)) {
     return '';
   };
 }
+
+goog.exportSymbol('treesaver.jsonParse', treesaver.json.parse);

@@ -360,3 +360,5 @@ treesaver.scheduler.stopAll = function() {
   treesaver.scheduler.tasks_ = [];
   treesaver.scheduler.namedTasks_ = {};
 };
+
+goog.exportSymbol('treesaver.scheduler.repeat', treesaver.scheduler.repeat);
