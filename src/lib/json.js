@@ -31,3 +31,5 @@ goog.scope(function() {
     return nativeJSON.stringify(val);
   };
 });
+
+goog.exportSymbol('treesaver.jsonParse', treesaver.json.parse);

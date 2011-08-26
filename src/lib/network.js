@@ -322,8 +322,10 @@ goog.scope(function() {
     request.xhr.abort();
     treesaver.network.requestError_(request);
   };
-
-  if (WITHIN_IOS_WRAPPER) {
-    goog.exportSymbol('treesaver.setOnlineStatus', treesaver.network.setOnlineStatus);
-  }
 });
+
+// Online checks
+goog.exportSymbol('treesaver.isOnline', treesaver.network.isOnline);
+goog.exportSymbol('treesaver.setOnlineStatus', treesaver.network.setOnlineStatus);
+
+goog.exportSymbol('treesaver.ajaxGet', treesaver.network.get);

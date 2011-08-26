@@ -366,3 +366,5 @@ goog.scope(function() {
     scheduler.namedTasks_ = {};
   };
 });
+
+goog.exportSymbol('treesaver.scheduler.repeat', treesaver.scheduler.repeat);
