@@ -70,11 +70,7 @@ treesaver.ui.StateManager.load = function() {
       treesaver.ui.StateManager.onOrientationChange);
 
     // Hide the address bar on iPhone
-    treesaver.scheduler.delay(function() {
-      // IE's window.scrollTo is some kind of weird function without an apply()
-      // so we have to wrap this call within a wrapper to avoid nasty errors
-      window.scrollTo(0, 0);
-    }, 100);
+    treesaver.scheduler.delay(window.scrollTo, 100, [0, 0]);
   }
 
   return true;
@@ -126,13 +122,13 @@ treesaver.ui.StateManager.getChromeContainer_ = function() {
  * @return {!Element}
  */
 treesaver.ui.StateManager.getViewport_ = function() {
-  var viewport = treesaver.dom.getElementsByProperty('name', 'viewport', 'meta')[0];
+  var viewport = treesaver.dom.querySelectorAll('meta[name=viewport]')[0];
 
   if (!viewport) {
     // Create a viewport if one doesn't exist
     viewport = document.createElement('meta');
     viewport.setAttribute('name', 'viewport');
-    treesaver.dom.getElementsByTagName('head')[0].appendChild(viewport);
+    treesaver.dom.querySelectorAll('head')[0].appendChild(viewport);
   }
 
   return viewport;
@@ -243,20 +239,10 @@ treesaver.ui.StateManager.getAvailableSize_ = function() {
       window.scrollTo(0, 0);
     }
 
-    // IE9+ and all other browsers
-    if (!SUPPORT_IE || 'innerWidth' in window) {
-      return {
-        w: window.innerWidth,
-        h: window.innerHeight
-      };
-    }
-    else {
-      // IE8-
-      return {
-        w: document.documentElement.clientWidth,
-        h: document.documentElement.clientHeight
-      };
-    }
+    return {
+      w: window.innerWidth,
+      h: window.innerHeight
+    };
   }
   else {
     return treesaver.dimensions.getSize(treesaver.tsContainer);

@@ -29,23 +29,9 @@ treesaver.capabilities.ua_ = window.navigator.userAgent.toLowerCase();
  */
 treesaver.capabilities.platform_ =
   // Android 1.6 doesn't have a value for navigator.platform
-  !SUPPORT_LEGACY || window.navigator.platform ?
+  window.navigator.platform ?
   window.navigator.platform.toLowerCase() :
   /android/.test(treesaver.capabilities.ua_) ? 'android' : 'unknown';
-
-/**
- * Is this an older browser that requires some patching for key functionality
- * like querySelectorAll
- *
- * @const
- * @type {boolean}
- */
-treesaver.capabilities.IS_LEGACY = SUPPORT_LEGACY && !(
-  // Storage
-  'localStorage' in window &&
-  'querySelectorAll' in document &&
-  'JSON' in window
-);
 
 /**
  * Does the current browser meet the Treesaver requirements
@@ -53,34 +39,22 @@ treesaver.capabilities.IS_LEGACY = SUPPORT_LEGACY && !(
  * @const
  * @type {boolean}
  */
-treesaver.capabilities.SUPPORTS_TREESAVER = !SUPPORT_LEGACY || (
+treesaver.capabilities.SUPPORTS_TREESAVER = (
   // Can't be in quirks mode (box model issues)
   document.compatMode !== 'BackCompat' &&
   // Need W3C AJAX (excludes IE6)
   'XMLHttpRequest' in window &&
-  // W3C or IE Event model (should be everywhere)
-  !!(document.addEventListener || document.attachEvent) &&
-  // Runtime styles (needed for measuring, should be everywhere)
-  !!(document.documentElement.currentStyle || window.getComputedStyle) &&
-  // Require querySelectorAll in order to exclude Firefox 3.0,
-  // but allow IE7 by checking for their non-W3C event model
-  ('querySelectorAll' in document ||
-    // Opera 9.64 passes as SUPPORT_LEGACY, does not have querySelectorAll,
-    // and has both attachEvent and addEventListener. We exclude it here
-    // by narrowing down the scope to browsers that do not have querySelectorAll,
-    // do have attachEvent but do not have addEventListener. Hopefully that only
-    // matches IE7.
-    (SUPPORT_IE && 'attachEvent' in document && !('addEventListener' in document)))
+  // W3C event model (excludes IE8 and below)
+  'addEventListener' in document &&
+  // Runtime styles (needed for measuring)
+  'getComputedStyle' in window &&
+  // querySelectorAll
+  'querySelectorAll' in document &&
+  // Local storage
+  'localStorage' in window &&
+  // JSON
+  'JSON' in window
 );
-
-/**
- * Is this browser IE8 running in IE7 compat mode?
- *
- * @const
- * @type {boolean}
- */
-treesaver.capabilities.IS_IE8INIE7 = SUPPORT_IE &&
-  'documentMode' in document && document.documentMode <= 7;
 
 /**
  * Are we running within a native app?
@@ -229,7 +203,7 @@ treesaver.capabilities.domCSSPrefix = (function() {
 treesaver.capabilities.cssPropertySupported_ = function(propName, testPrefix, skipPrimary) {
   var styleObj = document.documentElement.style,
       prefixed = testPrefix && treesaver.capabilities.domCSSPrefix ?
-        (treesaver.capabilities.domCSSPrefix + propName.charAt(0).toUpperCase() + propName.substr(1)) :
+        (treesaver.capabilities.domCSSPrefix + propName[0].toUpperCase() + propName.substr(1)) :
         false;
 
   return (!skipPrimary && typeof styleObj[propName] !== 'undefined') ||
@@ -325,27 +299,10 @@ treesaver.capabilities.SUPPORTS_FLASH = !treesaver.capabilities.IS_NATIVE_APP &&
  * @type {boolean}
  */
 treesaver.capabilities.SUPPORTS_FONTFACE = (function() {
-  if (SUPPORT_LEGACY && treesaver.capabilities.IS_LEGACY) {
-    // Only legacy browser with @font-face support is IE7,
-    // which we don't care enough about
-    return false;
-  }
-
-  // Quick and easy test that works in FF2+, Safari, and Opera
+  // Quick and easy test that works in FF2+, Safari, IE9+, and Opera
   // Note: This gives a false positive for older versions of Chrome,
   // (version 3 and earlier). Market share is too low to care
-  if ('CSSFontFaceRule' in window) {
-    return true;
-  }
-
-  // IE fails in previous support even though it's suported EOT for a
-  // long long time
-  if (SUPPORT_IE && treesaver.capabilities.BROWSER_NAME === 'msie') {
-    return true;
-  }
-
-  // No @font-face support
-  return false;
+  return 'CSSFontFaceRule' in window;
 }());
 
 /**
@@ -414,10 +371,7 @@ treesaver.capabilities.SUPPORTS_VIDEO =
  * @const
  * @type {boolean}
  */
-treesaver.capabilities.SUPPORTS_LOCALSTORAGE =
-  'localStorage' in window &&
-  // FF3 supports localStorage, but doesn't have native JSON
-  !treesaver.capabilities.IS_LEGACY;
+treesaver.capabilities.SUPPORTS_LOCALSTORAGE = 'localStorage' in window;
 
 /**
  * Whether the browser supports offline web applications
@@ -541,7 +495,6 @@ treesaver.capabilities.update_ = function() {
       p(treesaver.capabilities.SUPPORTS_FLASH) + 'flash',
       p(treesaver.capabilities.SUPPORTS_ORIENTATION) + 'orientation',
       p(treesaver.capabilities.IS_FULLSCREEN) + 'fullscreen',
-      p(treesaver.capabilities.IS_LEGACY) + 'legacy',
       p(treesaver.capabilities.IS_MOBILE) + 'mobile',
       p(treesaver.capabilities.IS_SMALL_SCREEN) + 'smallscreen',
       p(treesaver.network.loadedFromCache()) + 'cached',
