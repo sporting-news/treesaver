@@ -439,6 +439,11 @@ treesaver.ui.Chrome.prototype.keyDown = function(e) {
     return;
   }
 
+  // Ignore within forms
+  if (/input|select|textarea/i.test(e.target.tagName)) {
+    return;
+  }
+
   // Don't override keyboard commands
   if (!treesaver.ui.Chrome.specialKeyPressed_(e)) {
     switch (e.keyCode) {
@@ -809,6 +814,7 @@ treesaver.ui.Chrome.prototype.touchStart = function(e) {
     totalTime: 0,
     touchCount: e.touches.length,
     withinViewer: withinViewer,
+    originalOffset: this.pageOffset,
     scroller: scroller,
     canScrollHorizontally: scroller && treesaver.ui.Scrollable.canScrollHorizontally(scroller)
   };
@@ -818,7 +824,7 @@ treesaver.ui.Chrome.prototype.touchStart = function(e) {
   }
 
   // Pause other work for better swipe performance
-  treesaver.scheduler.pause([], 2 * SWIPE_TIME_LIMIT);
+  treesaver.scheduler.pause([]);
 };
 
 /**
@@ -876,7 +882,7 @@ treesaver.ui.Chrome.prototype.touchMove = function(e) {
     touchData.totalX2 = e.touches[1].pageX - touchData.startX2;
   }
   else {
-    this.pageOffset = touchData.totalX;
+    this.pageOffset = touchData.originalOffset + touchData.totalX;
     this._updatePagePositions(true);
   }
 };
@@ -1000,8 +1006,8 @@ treesaver.ui.Chrome.prototype.touchEnd = function(e) {
  * @param {!Event} e
  */
 treesaver.ui.Chrome.prototype.touchCancel = function(e) {
-  // Let the tasks begin again
-  treesaver.scheduler.resume();
+  // Let the tasks begin again (in a bit)
+  treesaver.scheduler.queue(treesaver.scheduler.resume, [], 'resumeTasks');
 
   this.touchData_ = null;
 };
@@ -1028,7 +1034,7 @@ treesaver.ui.Chrome.prototype.mouseOver = function(e) {
 treesaver.ui.Chrome.prototype.isWithinScroller_ = function(el) {
   var node = el;
 
-  while (node) {
+  while (node && node != document.documentElement) {
     if (treesaver.dom.hasClass(node, 'scroll')) {
         return node;
     }
@@ -1680,23 +1686,23 @@ treesaver.ui.Chrome.prototype._updatePagePositionsDelayed = function() {
  * @param {boolean=} preventAnimation
  */
 treesaver.ui.Chrome.prototype._updatePagePositions = function(preventAnimation) {
-  if (!preventAnimation) {
+  if (!preventAnimation && this.pageOffset) {
     if (MAX_ANIMATION_DURATION) {
       // Pause tasks to keep animation smooth
-      treesaver.scheduler.pause(['animatePages'], 2 * MAX_ANIMATION_DURATION);
+      treesaver.scheduler.pause(['animatePages', 'resumeTasks']);
 
       // Percent of time left in animation
       var t = 1 - (goog.now() - this.animationStart || 0) / MAX_ANIMATION_DURATION;
       // Clamp into 0,1
       t = Math.max(0, Math.min(1, t));
 
-      // Cubic easing
-      this.pageOffset *= Math.pow(t, 3);
+      // Ease and round
+      this.pageOffset = Math.round(this.pageOffset * t);
 
-      if (Math.abs(this.pageOffset) <= 1) {
+      if (!this.pageOffset) {
         this.pageOffset = 0;
-        // Re-enable other tasks
-        treesaver.scheduler.resume();
+        // Re-enable other tasks, soon
+        treesaver.scheduler.queue(treesaver.scheduler.resume, [], 'resumeTasks');
       }
       else {
         // Queue up another call in a bit
