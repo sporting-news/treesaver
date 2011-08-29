@@ -359,7 +359,7 @@ goog.scope(function() {
    */
   scheduler.stopAll = function() {
     // Stop task
-    if (scheduler.tickID_) {
+    if (scheduler.tickID_ !== -1) {
       scheduler.cancelAnimationFrame_(treesaver.scheduler.tickID_);
     }
 
