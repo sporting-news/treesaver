@@ -67,7 +67,7 @@ var SWIPE_TIME_LIMIT = 2000; // 2 seconds
  *
  * @define {number}
  */
-var MAX_ANIMATION_DURATION = 200; // .2 seconds
+var MAX_ANIMATION_DURATION = 400; // .4 seconds
 
 /**
  * How often to check for resizes and orientations
