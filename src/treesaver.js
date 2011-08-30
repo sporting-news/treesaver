@@ -144,9 +144,12 @@ treesaver.domReady = function(e) {
     // Remove main content
     treesaver.dom.clearChildren(/** @type {!Element} */(treesaver.tsContainer));
 
-    // Place a loading message
-    treesaver.tsContainer.innerHTML =
-      '<div id="loading">Loading ' + document.title + '...</div>';
+    if (!WITHIN_IOS_WRAPPER) {
+      // Place a loading message
+      treesaver.tsContainer.innerHTML =
+        '<div id="loading">Loading ' + document.title + '...</div>';
+    }
+
     // Re-enable content display
     document.documentElement.style.display = 'block';
   }
