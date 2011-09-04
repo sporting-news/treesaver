@@ -70,6 +70,7 @@ goog.scope(function() {
 
     // Set up event listener for the index
     events.addListener(document, Index.events.LOADED, ArticleManager.onIndexLoad);
+    events.addListener(document, Index.events.UPDATED, ArticleManager.onIndexUpdated);
 
     // Create an index instance. Note that getIndexUrl() may fail, causing the LOADFAILED handler to be called.
     ArticleManager.index = new Index(ArticleManager.getIndexUrl());
@@ -115,6 +116,7 @@ goog.scope(function() {
     ArticleManager.loadingPageSize = null;
 
     events.removeListener(document, Index.events.LOADED, ArticleManager.onIndexLoad);
+    events.removeListener(document, Index.events.UPDATED, ArticleManager.onIndexUpdated);
 
     // Unhook events
     ArticleManager.watchedEvents.forEach(function(evt) {
@@ -122,6 +124,22 @@ goog.scope(function() {
     });
 
     events.removeListener(window, treesaver.history.events.POPSTATE, ArticleManager.handleEvent);
+  };
+
+  ArticleManager.onIndexUpdated = function(e) {
+    var index = e.index;
+
+    index.getDocuments().forEach(function (doc) {
+      if (doc.refresh) {
+        treesaver.scheduler.repeat(function () {
+          // TODO: Perhaps we should check if the document we're refreshing === currentDocument. This
+          // however might be troublesome if the timeout value is high and the user just navigated to
+          // this page (i.e. it will take a long time to actually refresh.) For now we assume this
+          // feature will be used sparingly and with sensible intervals.
+          doc.load(true);
+        }, doc.refresh * 1000, Infinity, [], doc.url);
+      }
+    });
   };
 
   ArticleManager.onIndexLoad = function(e) {
@@ -136,6 +154,7 @@ goog.scope(function() {
         ArticleManager.initialDocument.meta = doc.meta;
         ArticleManager.initialDocument.children = doc.children;
         ArticleManager.initialDocument.requirements = doc.requirements;
+        ArticleManager.initialDocument.refresh = doc.refresh;
 
         doc.parent.replaceChild(ArticleManager.initialDocument, doc);
       });

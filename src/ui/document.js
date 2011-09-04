@@ -30,6 +30,7 @@ treesaver.ui.Document = function(url, meta) {
   this.articleMap = {};
   this.anchorMap = [];
   this.contents = [];
+  this.refresh = 0;
 };
 
 goog.scope(function() {
@@ -108,6 +109,12 @@ goog.scope(function() {
    * @type {?string}
    */
   Document.prototype.title;
+
+  /**
+   * Refresh (reload) this document in `refresh` seconds.
+   * @type {!number}
+   */
+  Document.prototype.refresh;
 
   Document.CACHE_STORAGE_PREFIX = 'cache:';
 
@@ -288,8 +295,9 @@ goog.scope(function() {
 
   /**
    * Load this document by an XHR, if it hasn't already been loaded.
+   * @param {boolean=} skipCache Whether to skip loading the document from the cache, defaults to false (i.e. load from local storage)
    */
-  Document.prototype.load = function() {
+  Document.prototype.load = function(skipCache) {
     var that = this,
         cached_text = null;
 
@@ -303,7 +311,7 @@ goog.scope(function() {
     if (!treesaver.capabilities.IS_NATIVE_APP) {
       cached_text = /** @type {?string} */ (treesaver.storage.get(Document.CACHE_STORAGE_PREFIX + this.url));
 
-      if (cached_text) {
+      if (!skipCache && cached_text) {
         treesaver.debug.log('Document.load: Processing cached HTML content for document: ' + this.url);
         this.articles = this.parse(cached_text);
         this.title = this.extractTitle(cached_text);
