@@ -100,6 +100,7 @@ goog.scope(function() {
         contents = null,
         meta = {},
         requirements = null,
+        refresh = 0,
         doc = null;
 
     if (typeof entry === 'string') {
@@ -113,6 +114,10 @@ goog.scope(function() {
       Object.keys(entry).forEach(function(key) {
         meta[key] = entry[key];
       });
+
+      if (entry['refresh']) {
+        refresh = parseInt(entry['refresh'], 10);
+      }
 
       if (entry['requires']) {
         if (typeof entry['requires'] === 'string') {
@@ -141,6 +146,10 @@ goog.scope(function() {
 
     // Create a new document
     doc = new Document(url, meta);
+
+    if (refresh) {
+      doc.refresh = refresh;
+    }
 
     // Depth first traversal of any contents, and add them
     if (contents && Array.isArray(contents)) {
