@@ -9,9 +9,12 @@ goog.require('treesaver.capabilities');
 goog.require('treesaver.debug');
 goog.require('treesaver.dimensions');
 goog.require('treesaver.dom');
+goog.require('treesaver.events');
 goog.require('treesaver.network');
 goog.require('treesaver.scheduler');
 goog.require('treesaver.ui.ArticleManager');
+// Avoid circular dep
+// goog.require('treesaver.ui.StateManager');
 goog.require('treesaver.ui.Index');
 goog.require('treesaver.ui.Scrollable');
 
@@ -30,11 +33,11 @@ goog.scope(function() {
     // DEBUG-only validation checks
     if (goog.DEBUG) {
       if (!dom.querySelectorAll('.viewer', node).length) {
-        treesaver.debug.error('Chrome does not have a viewer');
+        debug.error('Chrome does not have a viewer');
       }
 
       if (node.parentNode.childNodes.length !== 1) {
-        treesaver.debug.error('Chrome is not only child in container');
+        debug.error('Chrome is not only child in container');
       }
     }
 
@@ -64,6 +67,7 @@ goog.scope(function() {
       debug = treesaver.debug,
       dimensions = treesaver.dimensions,
       dom = treesaver.dom,
+      events = treesaver.events,
       network = treesaver.network,
       scheduler = treesaver.scheduler,
       ArticleManager = treesaver.ui.ArticleManager,
@@ -98,6 +102,16 @@ goog.scope(function() {
    * @type {?treesaver.dimensions.Size}
    */
   Chrome.prototype.pageArea;
+
+  /**
+   * @type {number}
+   */
+  Chrome.prototype.pageOffset;
+
+  /**
+   * @type {number|undefined}
+   */
+  Chrome.prototype.pageShift_;
 
   /**
    * @type {boolean}
@@ -245,7 +259,7 @@ goog.scope(function() {
       this.publicationElements = [];
       this.publicationTemplates = [];
 
-      dom.querySelectorAll('[' + treesaver.dom.customAttributePrefix + 'template]', this.node).forEach(function(el) {
+      dom.querySelectorAll('[' + dom.customAttributePrefix + 'template]', this.node).forEach(function(el) {
         var template_name = dom.getCustomAttr(el, 'template'),
             elementArray, templateArray;
 
@@ -282,7 +296,7 @@ goog.scope(function() {
 
       // Setup event handlers
       Chrome.watchedEvents.forEach(function(evt) {
-        treesaver.events.addListener(document, evt, this);
+        events.addListener(document, evt, this);
       }, this);
 
       // Always start off active
@@ -306,7 +320,7 @@ goog.scope(function() {
 
     // Remove event handlers
     Chrome.watchedEvents.forEach(function(evt) {
-      treesaver.events.removeListener(document, evt, this);
+      events.removeListener(document, evt, this);
     }, this);
 
     // Make sure to drop references
@@ -522,7 +536,7 @@ goog.scope(function() {
 
     // Ignore if it's not a left-click
     if ('which' in e && e.which !== 1 || e.button) {
-      treesaver.debug.info('Click ignored due to non-left click');
+      debug.info('Click ignored due to non-left click');
 
       return;
     }
@@ -640,7 +654,7 @@ goog.scope(function() {
                   dom.hasClass(el, 'close-sidebar')) {
 
             if ((nearestSidebar = this.getNearestSidebar(el))) {
-              if (dom.hasClass(el, 'sidebar') || treesaver.dom.hasClass(el, 'open-sidebar')) {
+              if (dom.hasClass(el, 'sidebar') || dom.hasClass(el, 'open-sidebar')) {
                 this.sidebarActive(nearestSidebar);
               }
               else if (dom.hasClass(el, 'toggle-sidebar')) {
@@ -1068,6 +1082,8 @@ goog.scope(function() {
       }
       node = /** @type {?Element} */ (node.parentNode);
     }
+
+    return null;
   };
 
   /**
@@ -1080,8 +1096,10 @@ goog.scope(function() {
       // Adjust the offset immediately for animation
       this.layoutPages(-1);
 
-      // Now change the page in the article manager, etc
-      return ArticleManager.previousPage();
+      // Change the page in the article manager in a bit
+      scheduler.delay(ArticleManager.previousPage, 50, [], 'prevPage');
+
+      return true;
     }
   };
 
@@ -1095,8 +1113,10 @@ goog.scope(function() {
       // Adjust the offset immediately for animation
       this.layoutPages(1);
 
-      // Now change the page in the article manager, etc
-      return ArticleManager.nextPage();
+      // Change the page in the article manager in a bit
+      scheduler.delay(ArticleManager.nextPage, 50, [], 'nextPage');
+
+      return true;
     }
   };
 
@@ -1110,7 +1130,7 @@ goog.scope(function() {
       this.uiActive = true;
       dom.addClass(/** @type {!Element} */ (this.node), 'active');
 
-      treesaver.events.fireEvent(document, Chrome.events.ACTIVE);
+      events.fireEvent(document, Chrome.events.ACTIVE);
     }
 
     // Fire the idle event on a timer using debouncing, which delays
@@ -1135,7 +1155,7 @@ goog.scope(function() {
       this.uiActive = false;
       dom.removeClass(/** @type {!Element} */ (this.node), 'active');
 
-      treesaver.events.fireEvent(document, Chrome.events.IDLE);
+      events.fireEvent(document, Chrome.events.IDLE);
     }
 
     // Clear anything that might debounce
@@ -1180,7 +1200,7 @@ goog.scope(function() {
    * Show sidebar
    */
   Chrome.prototype.sidebarActive = function(sidebar) {
-    treesaver.events.fireEvent(document, Chrome.events.SIDEBARACTIVE, {
+    events.fireEvent(document, Chrome.events.SIDEBARACTIVE, {
       sidebar: sidebar
     });
     dom.addClass(/** @type {!Element} */ (sidebar), 'sidebar-active');
@@ -1191,7 +1211,7 @@ goog.scope(function() {
    */
   Chrome.prototype.sidebarInactive = function(sidebar) {
     if (this.isSidebarActive(sidebar)) {
-      treesaver.events.fireEvent(document, Chrome.events.SIDEBARINACTIVE, {
+      events.fireEvent(document, Chrome.events.SIDEBARINACTIVE, {
         sidebar: sidebar
       });
     }
@@ -1272,8 +1292,8 @@ goog.scope(function() {
     this.lightBox.node = /** @type {!Element} */ (this.lightBox.node);
 
     // Cover entire chrome with the lightbox
-    dimensions.setCssPx(this.lightBox.node, 'width', treesaver.dimensions.getOffsetWidth(this.node));
-    dimensions.setCssPx(this.lightBox.node, 'height', treesaver.dimensions.getOffsetHeight(this.node));
+    dimensions.setCssPx(this.lightBox.node, 'width', dimensions.getOffsetWidth(this.node));
+    dimensions.setCssPx(this.lightBox.node, 'height', dimensions.getOffsetHeight(this.node));
 
     if (!this.lightBox.showFigure(figure)) {
       // Showing failed
@@ -1320,12 +1340,11 @@ goog.scope(function() {
 
   /**
    * @private
-   * @return {treesaver.dimensions.Size}
    */
   Chrome.prototype.calculatePageArea = function() {
     if (goog.DEBUG) {
       if (!this.viewer) {
-        treesaver.debug.error('No viewer in chrome');
+        debug.error('No viewer in chrome');
       }
     }
 
@@ -1638,6 +1657,13 @@ goog.scope(function() {
         halfPageWidth = currentPage.size.outerW / 2,
         oldOffset = this.pageOffset;
 
+    // Ignore redundant updates
+    if (this.pageShift_ && pageShift === this.pageShift_) {
+      return;
+    }
+
+    this.pageShift_ = pageShift;
+
     // Register the positions of each page
     // The main page is dead centered via CSS absolute positioning, so no work
     // needs to be done
@@ -1715,13 +1741,15 @@ goog.scope(function() {
    * @param {boolean=} preventAnimation
    */
   Chrome.prototype._updatePagePositions = function(preventAnimation) {
+    var t;
+
     if (!preventAnimation && this.pageOffset) {
-      if (MAX_ANIMATION_DURATION) {
+      if (MAX_ANIMATION_DURATION && this.animationStart) {
         // Pause tasks to keep animation smooth
         scheduler.pause(['animatePages', 'resumeTasks']);
 
         // Percent of time left in animation
-        var t = 1 - (goog.now() - this.animationStart || 0) / MAX_ANIMATION_DURATION;
+        t = 1 - (goog.now() - this.animationStart) / MAX_ANIMATION_DURATION;
         // Clamp into 0,1
         t = Math.max(0, Math.min(1, t));
 
@@ -1776,7 +1804,7 @@ goog.scope(function() {
     }
 
     if (!chrome) {
-      treesaver.debug.error('No Chrome Fits!');
+      debug.error('No Chrome Fits!');
     }
 
     return chrome;
