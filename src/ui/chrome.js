@@ -12,9 +12,9 @@ goog.require('treesaver.dom');
 goog.require('treesaver.events');
 goog.require('treesaver.network');
 goog.require('treesaver.scheduler');
+goog.require('treesaver.template');
 goog.require('treesaver.ui.ArticleManager');
-// Avoid circular dep
-// goog.require('treesaver.ui.StateManager');
+goog.require('treesaver.ui.Document');
 goog.require('treesaver.ui.Index');
 goog.require('treesaver.ui.Scrollable');
 
@@ -62,6 +62,7 @@ goog.scope(function() {
 
 goog.scope(function() {
   var Chrome = treesaver.ui.Chrome,
+      Document = treesaver.ui.Document,
       array = treesaver.array,
       capabilities = treesaver.capabilities,
       debug = treesaver.debug,
@@ -261,7 +262,7 @@ goog.scope(function() {
 
       dom.querySelectorAll('[' + dom.customAttributePrefix + 'template]', this.node).forEach(function(el) {
         var template_name = dom.getCustomAttr(el, 'template'),
-            elementArray, templateArray;
+            elementArray, templateArray, newEl;
 
         switch (template_name) {
         case 'position':
@@ -285,8 +286,14 @@ goog.scope(function() {
         }
 
         // Add
-        elementArray.push(el);
         templateArray.push(el.innerHTML);
+
+        if (el.nodeName.toLowerCase() === 'script') {
+          newEl = document.createElement('div');
+          el.parentNode.replaceChild(newEl, el);
+          el = newEl;
+        }
+        elementArray.push(el);
       }, this);
 
       this.menus = dom.querySelectorAll('.menu', this.node);
@@ -548,6 +555,7 @@ goog.scope(function() {
         handled = false,
         withinSidebar = false,
         withinMenu = false,
+        target = null,
         nearestSidebar = null;
 
     // Lightbox active? Hide it
@@ -676,24 +684,34 @@ goog.scope(function() {
         // Check links last since they may be used as UI commands as well
         // Links can occur in-page or in the chrome
         if (!handled && el.href) {
+          target = el.getAttribute('target');
+          url = network.absoluteURL(el.href);
+
+          if (target === '_blank') {
+            return;
+          }
           // Lightbox-flagged elements are skipped as processing goes up the chain
           // if a zoomable is found on the way up the tree, it will be handled. If
           // not, the link is navigated as-is
-          if (el.getAttribute('target') === 'lightbox') {
+          else if (target === 'ts-lightbox') {
             // Skip this element and process the parent zoomable
             el = /** @type {!Element} */ (el.parentNode);
             continue;
           }
-
-          url = network.absoluteURL(el.href);
-          if (!ArticleManager.goToDocumentByURL(url)) {
-            // The URL is not an article, let the navigation happen normally
-            return;
+          else if (ArticleManager.goToDocumentByURL(url)) {
+            handled = true;
           }
-
-          handled = true;
+          // Target is not blank a lightbox and it is not in the index.
+          else if (target === 'ts-treesaver') {
+            // Force processing the document as a Treesaver document by
+            // adding it to the index.
+            ArticleManager.index.appendChild(new Document(url));
+            ArticleManager.index.update();
+            if (ArticleManager.goToDocumentByURL(url)) {
+              handled = true;
+            }
+          }
         }
-
         el = /** @type {!Element} */ (el.parentNode);
       }
     }
@@ -1414,7 +1432,7 @@ goog.scope(function() {
     this.positionElements.forEach(function(el, i) {
       var template = this.positionTemplates[i];
 
-      el.innerHTML = Mustache.to_html(template, {
+      treesaver.template.expand(el, template, {
         'pagenumber': ArticleManager.getCurrentPageNumber(),
         'pagecount': ArticleManager.getCurrentPageCount(),
         'url': ArticleManager.getCurrentUrl(),
@@ -1428,7 +1446,7 @@ goog.scope(function() {
     this.publicationElements.forEach(function(el, i) {
       var template = this.publicationTemplates[i];
 
-      el.innerHTML = Mustache.to_html(template, ArticleManager.index.meta);
+      treesaver.template.expand(el, template, ArticleManager.index.meta);
     }, this);
   };
 
@@ -1436,7 +1454,7 @@ goog.scope(function() {
     this.currentDocumentElements.forEach(function(el, i) {
       var template = this.currentDocumentTemplates[i];
 
-      el.innerHTML = Mustache.to_html(template, ArticleManager.getCurrentDocument().meta);
+      treesaver.template.expand(el, template, ArticleManager.getCurrentDocument().meta);
     }, this);
   };
 
@@ -1592,7 +1610,7 @@ goog.scope(function() {
     this.indexElements.forEach(function(el, i) {
       var template = this.indexTemplates[i];
 
-      el.innerHTML = Mustache.to_html(template, toc);
+      treesaver.template.expand(el, template, toc);
     }, this);
 
     this.updateTOCActive();
